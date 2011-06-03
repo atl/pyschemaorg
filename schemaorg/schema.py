@@ -1,4 +1,4 @@
-from schemaorg.multidict import UnorderedMultiDict
+from schemaorg.base import Base
 
 Boolean = bool
 
@@ -17,56 +17,128 @@ class Text(unicode):
 class URL(Text):
     pass
 
-class BaseMetaClass(type):
-    def __new__(meta, classname, bases, class_dict):
-        properties = {}
-        for b in reversed(bases):
-            properties.update(getattr(b, '_properties', {}))
-        properties.update(class_dict['_properties'])
-        class_dict['_properties'] = properties
-        return type.__new__(meta, classname, bases, class_dict)
+class NumberOrText(Text):
+    pass
 
-class Base(UnorderedMultiDict):
-    _properties = {}
-    
-    __metaclass__ = BaseMetaClass
-    
-    def __init__(self, *args, **kwargs):
-        super(Base, self).__init__()
-        if len(args) == 1:
-            if hasattr(args[0], '__getitem__'):
-                for (k, v) in args[0].items():
-                    self[k] = self._properties.get(k, unicode)(v)
-            else:
-                raise TypeError("%s expected a Mapping type as the positional argument" % (type(self).__name__,))
-        elif args:
-            raise TypeError("%s expected at most arguments, got %d" % (type(self).__name__, len(args)))
-        for (k, v) in kwargs.items():
-            self[k] = self._properties.get(k, unicode)(v)
-    
-    def __repr__(self):
-        return "<%s %s>" % (type(self).__name__, self.data)
-    
-    def update(self, *args, **kwargs):
-        if len(args) == 1:
-            if hasattr(args[0], '__getitem__'):
-                for (k, v) in args[0].items():
-                    self[k] = v
-            else:
-                raise TypeError("update expected a Mapping type as the positional argument")
-        elif args:
-            raise TypeError("update expected at most arguments, got %d" % (len(args),))
-        for (k, v) in kwargs.items():
-            self[k] = v
-    
+class Number(Float):
+    pass
+
+# Currency
+# NumberOrText
+# PlaceOrPostalAddress
+# PersonOrOrganization
+# PhotographOrImageObject
+
 
 class Thing(Base):
-    _properties = {'description': Text,
-                         'image': URL,
-                          'name': Text,
-                           'url': Text}
-    schema_url = 'http://schema.org/Thing'
+    properties = {'description': 'Text',
+                        'image': 'URL',
+                         'name': 'Text',
+                          'url': 'Text'}
+    _base_URL = 'http://schema.org/'
 
-class NumberedThing(Thing):
-    _properties = {'number': Float, 
-                      'age': Integer}
+class Intangible(Thing):
+    pass
+
+class Enumeration(Intangible):
+    pass
+
+class Rating(Intangible):
+    properties = {'bestRating': 'NumberOrText',
+                 'ratingValue': 'Text',
+                 'worstRating': 'NumberOrText'}
+
+class AggregateRating(Rating):
+    properties = {'itemReviewed': 'Thing',
+                   'ratingCount': 'Number',
+                   'reviewCount': 'Number'}
+
+class StructuredValue(Intangible):
+    pass
+
+class Place(Thing):
+    properties = {'address': 'PostalAddress',
+          'aggregateRating': 'AgregateRating',
+              'containedIn': 'Place',
+                   'events': 'Event',
+                'faxNumber': 'Text',
+                      'geo': 'GeoCoordinates',
+         'interactionCount': 'Text',
+                     'maps': 'Map',
+                   'photos': 'PhotographOrImageObject',
+                  'reviews': 'Review',
+                'telephone': 'Text'}
+
+class AdministrativeArea(Place):
+    pass
+
+class City(AdministrativeArea):
+    pass
+
+class Country(AdministrativeArea):
+    pass
+    
+class State(AdministrativeArea):
+    pass
+
+class ContactPoint(StructuredValue):
+    properties = {'contactPoint': 'Text',
+                         'email': 'Text',
+                     'faxNumber': 'Text',
+                     'telephone': 'Text'}
+
+class PostalAddress(ContactPoint):
+    properties = {'addressCountry': 'Country',
+                 'addressLocality': 'Text',
+                   'addressRegion': 'Text',
+             'postOfficeBoxNumber': 'Text',
+                      'postalCode': 'Text',
+                   'streetAddress': 'Text'}
+
+class Organization(Thing):
+    properties = {'address': 'PostalAddress',
+          'aggregateRating': 'AggregateRating',
+            'contactPoints': 'ContactPoint',
+                    'email': 'Text',
+                'employees': 'Person',
+                   'events': 'Event',
+                'faxNumber': 'Text',
+                 'founders': 'Person',
+             'foundingDate': 'Date',
+         'interactionCount': 'Text', # docs refer to UserInteraction
+                 'location': 'PlaceOrPostalAddress',
+                  'members': 'PersonOrOrganization',
+                  'reviews': 'Review',
+                'telephone': 'Text'}
+
+class Product(Thing):
+    properties = {'aggregateRating': 'AggregateRating', 
+                            'brand': 'Organization',
+                     'manufacturer': 'Organization',
+                            'model': 'Text',
+                           'offers': 'Offer',
+                        'productID': 'Text',
+                          'reviews': 'Review'}
+
+
+class Offer(Intangible):
+    properties = {'aggregateRating': 'AggregateRating',
+                     'availability': 'ItemAvailability',
+                    'itemCondition': 'OfferItemCondition',
+                      'itemOffered': 'Product',
+                            'price': 'NumberOrText',
+                    'priceCurrency': 'Text',
+                  'priceValidUntil': 'Date',
+                          'reviews': 'Review',
+                           'seller': 'Organization'}
+
+class AggregateOffer(Offer):
+    properties = {'highPrice': 'NumberOrText',
+                   'lowPrice': 'NumberOrText',
+                 'offerCount': 'Integer'}
+
+class GeoCoordinates(StructuredValue):
+    properties = {'elevation': 'NumberOrText',
+                   'latitude': 'NumberOrText',
+                  'longitude': 'NumberOrText'}
+
