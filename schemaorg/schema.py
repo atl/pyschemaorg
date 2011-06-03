@@ -1,6 +1,5 @@
 
-class Boolean(bool):
-    pass
+Boolean = bool
 
 class Date(object):
     pass
@@ -17,12 +16,19 @@ class Text(unicode):
 class URL(Text):
     pass
 
+class BaseMetaClass(type):
+    def __new__(meta, classname, bases, class_dict):
+        properties = {}
+        for b in reversed(bases):
+            properties.update(getattr(b, '_properties', {}))
+        properties.update(class_dict['_properties'])
+        class_dict['_properties'] = properties
+        return type.__new__(meta, classname, bases, class_dict)
+
 class Base(object):
     _properties = {}
-    _own_properties = {}
+    __metaclass__ = BaseMetaClass
     def __init__(self, **kwargs):
-        super(Base, self).__init__()
-        self._properties.update(self._own_properties)
         for (k, v) in kwargs.items():
             setattr(self, k, self._properties.get(k, unicode)(v))
     
@@ -30,11 +36,12 @@ class Base(object):
         return "{0}({1})".format(type(self).__name__, ', '.join(["%s=%s" % kv for kv in vars(self).items()]))
 
 class Thing(Base):
-    _own_properties = {'description': Text,
-                       'image': URL,
-                       'name': Text,
-                       'url': Text}
+    _properties = {'description': Text,
+                         'image': URL,
+                          'name': Text,
+                           'url': Text}
     schema_url = 'http://schema.org/Thing'
 
 class NumberedThing(Thing):
-    _own_properties = {'number': Float, 'age': Integer}
+    _properties = {'number': Float, 
+                      'age': Integer}
