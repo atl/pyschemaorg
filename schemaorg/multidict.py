@@ -82,7 +82,10 @@ from __future__ import generators
 # Performance-wise, Ordered has a slower (O(n)) than Unordered (O(1)).
 # Convince me otherwise and I'll change.  Besides, hierarchies are
 # overrated.
-class _BaseMultiDict:
+
+# 2011-06-03 Modification to use New-style Classes by Adam T. Lindsay
+
+class _BaseMultiDict(object):
     def __str__(self):
         """shows contents as if this is a dictionary
 
