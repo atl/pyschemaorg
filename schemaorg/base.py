@@ -1,4 +1,5 @@
 import collections
+import logging
 
 from schemaorg.multidict import UnorderedMultiDict
 
@@ -70,4 +71,42 @@ class Base(UnorderedMultiDict):
         return getattr(
             __import__(module_name, globals(), locals(), [class_name], -1),
             class_name)
-    
+
+def get_itemtype_mapping_from_classes(classlist):
+    mapping = {}
+    for cl in classlist:
+        try:
+            mapping[cl().schema_url] = cl
+        except AttributeError:
+            pass
+    return mapping
+
+def get_type_mapping_from_classes(classlist):
+    mapping = {}
+    for cl in classlist:
+        mapping[cl.__name__] = cl
+    return mapping
+
+def resolve_from_candidates(propertylist, classlist):
+    propertyset = set(propertylist)
+    class_properties = {}
+    for cl in classlist:
+        class_properties[cl] = set(cl.properties.keys())
+    class_mapper = []
+    for cl in classlist:
+        rest = list(classlist)
+        rest.remove(cl)
+        other_properties = [class_properties[r] for r in rest]
+        unique_props = class_properties[cl].difference(*other_properties)
+        class_mapper.append((cl,unique_props))
+    class_mapper.sort(key=lambda x: len(x[1]))
+    cm_score = []
+    for (cl, uniqs) in class_mapper:
+        score = len(uniqs.intersection(propertyset)) / float(len(uniqs) or 1)
+        print("%s, %f" % (cl.__name__, score))
+        cm_score.append((cl, score))
+    cm_score.sort(key=lambda x: x[1], reverse=True)
+    winner = cm_score[0]
+    if winner[1] == 0:
+        winner = class_mapper[0]
+    return winner[0]
