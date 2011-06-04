@@ -1,7 +1,11 @@
 PySchemaOrg
 ===========
 
-An experiment in making a Python interface to the [Schema.org](http://schema.org/) model and other similar models. This might act as a backbone for a [microdata](http://www.w3.org/TR/microdata/), as the glue between a document store and templating system, but it attempts to be as neutral as possible on that count.
+An experiment in making a Python interface to the [Schema.org](http://schema.org/)
+model and other similar models. This might act as a backbone for a
+[microdata](http://www.w3.org/TR/microdata/) CMS, as the glue between a document
+store and templating system, but it attempts to be as neutral as possible on that
+count.
 
 Elements
 --------
@@ -14,7 +18,7 @@ Elements
   
 * **base.py**
 
-  There is a `Base` class from which many entangled data model could be derived.
+  There is a `Base` class from which many data models could be derived.
   The basic use is for descendent classes to form their own hierarchy, and to
   define a class dict containing properties that the class adds. The value for 
   each property's key in the class dict is a callable or class path that marshals 
