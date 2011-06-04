@@ -1,3 +1,5 @@
+import collections
+
 from schemaorg.multidict import UnorderedMultiDict
 
 class BaseMetaClass(type):
@@ -27,7 +29,11 @@ class Base(UnorderedMultiDict):
         elif args:
             raise TypeError("%s expected at most arguments, got %d" % (type(self).__name__, len(args)))
         for (k, v) in kwargs.items():
-            self[k] = self.import_class(self.properties.get(k, '__builtin__.unicode'))(v)
+            action = self.properties.get(k, unicode)
+            if isinstance(action, collections.Callable):
+                self[k] = action(v)
+            else:
+                self[k] = self.import_class(action)(v)
     
     def __repr__(self):
         return "<%s %s>" % (type(self).__name__, self.data)
