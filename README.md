@@ -12,9 +12,11 @@ Elements
 
 * **multidict.py**
 
-  The current implementation is (very lightly) adapted from Andrew Dalke's 
+  The initial implementation was (very lightly) adapted from Andrew Dalke's 
   `UnorderedMultiDict`. It was the simplest, lightest implementation free of
-  dependencies I could find on short notice.
+  dependencies I could find on short notice. However, after experimenting with
+  and learning from that code, I built a more idiosyncratic `MultiDict` that
+  suited the base data model better.
   
 * **base.py**
 

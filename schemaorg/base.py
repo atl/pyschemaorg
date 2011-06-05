@@ -1,9 +1,73 @@
 import collections
 import logging
+import itertools
+import abc
 
 from schemaorg.multidict import UnorderedMultiDict
 
-class BaseMetaClass(type):
+def is_nonstring_iterable(thing):
+    return isinstance(thing, collections.Iterable) and not isinstance(thing, basestring)
+
+noop = lambda x: x
+
+class MultiDict(collections.MutableMapping):
+    def __init__(self, *args, **kwargs):
+        # super(MultiDict, self).__init__(*args, **kwargs)
+        super(MultiDict, self).__init__( )
+        self.data = collections.defaultdict(list)
+        if len(args) == 1:
+            if isinstance(args[0], collections.Mapping):
+                for (k, v) in args[0].items():
+                    if is_nonstring_iterable(v):
+                        self.data[k].extend(v)
+                    else:
+                        self.data[k].append(v)
+            else:
+                raise TypeError("%s expected a Mapping type as the positional argument" % (type(self).__name__,))
+        elif args:
+            raise TypeError("%s expected at most arguments, got %d" % (type(self).__name__, len(args)))
+        for (k, v) in kwargs.items():
+            if is_nonstring_iterable(v):
+                self.data[k].extend(v)
+            else:
+                self.data[k].append(v)
+    
+    def __getitem__(self, key):
+        val = self.data[key]
+        if len(val) == 1:
+            return val[0]
+        else:
+            return val
+    
+    def __delitem__(self, key):
+        self.data.__delitem__(key)
+    
+    def __setitem__(self, key, value):
+        if is_nonstring_iterable(value):
+            self.data[key].extend(value)
+        else:
+            self.data[key].append(value)
+    
+    def __len__(self):
+        return sum(map(len, self.data.values()))
+    
+    def __iter__(self):
+        return self.data.__iter__()
+    
+    def getall(self, key):
+        return self.data[key]
+    
+    def getone(self, key):
+        return self.data[key][-1]
+    
+    def values(self):
+        return list(itertools.chain.from_iterable(self.data.values()))
+    
+    def itervalues(self):
+        return itertools.chain.from_iterable(self.data.values())
+    
+
+class BaseMetaClass(abc.ABCMeta):  
     def __new__(meta, classname, bases, class_dict):
         properties = {}
         for b in reversed(bases):
@@ -12,7 +76,7 @@ class BaseMetaClass(type):
         class_dict['properties'] = properties
         return type.__new__(meta, classname, bases, class_dict)
 
-class Base(UnorderedMultiDict):
+class Base(MultiDict):
     properties = {}
     
     __metaclass__ = BaseMetaClass
@@ -20,36 +84,34 @@ class Base(UnorderedMultiDict):
     _base_URL = ''
     
     def __init__(self, *args, **kwargs):
-        super(Base, self).__init__()
-        if len(args) == 1:
-            if hasattr(args[0], '__getitem__'):
-                for (k, v) in args[0].items():
-                    self[k] = self.properties.get(k, unicode)(v)
-            else:
-                raise TypeError("%s expected a Mapping type as the positional argument" % (type(self).__name__,))
-        elif args:
-            raise TypeError("%s expected at most arguments, got %d" % (type(self).__name__, len(args)))
-        for (k, v) in kwargs.items():
-            action = self.properties.get(k, unicode)
-            if isinstance(action, collections.Callable):
-                self[k] = action(v)
-            else:
-                self[k] = self.import_class(action)(v)
+        super(Base, self).__init__(*args, **kwargs)
+        for k in self.data:
+            action = self.properties.get(k, noop)
+            if not isinstance(action, collections.Callable):
+                action = self.import_class(action)
+            self.data[k] = map(action, self.data[k])
     
     def __repr__(self):
         return "<%s %s>" % (type(self).__name__, self.data)
     
-    def update(self, *args, **kwargs):
-        if len(args) == 1:
-            if hasattr(args[0], '__getitem__'):
-                for (k, v) in args[0].items():
-                    self[k] = self.properties.get(k, unicode)(v)
-            else:
-                raise TypeError("update expected a Mapping type as the positional argument")
-        elif args:
-            raise TypeError("update expected at most arguments, got %d" % (len(args),))
-        for (k, v) in kwargs.items():
-            self[k] = self.properties.get(k, unicode)(v)
+    def items(self):
+        normal_items = super(Base, self).items()
+        # normal_items.append(('itemtype', self.schema_url))
+        # normal_items.append(('type', type(self).__name__))
+        return normal_items
+    
+    def __iter__(self):
+        normal_items = super(Base, self).__iter__()
+        additional = ('itemtype', 'type')
+        return itertools.chain(normal_items, additional)
+    
+    def __getitem__(self, key):
+        if key in self.data:
+            return super(Base, self).__getitem__(key)
+        elif key == 'type':
+            return type(self).__name__
+        elif key == 'itemtype':
+            return self.schema_url
     
     @property
     def schema_url(self):
@@ -71,6 +133,7 @@ class Base(UnorderedMultiDict):
         return getattr(
             __import__(module_name, globals(), locals(), [class_name], -1),
             class_name)
+    
 
 def get_itemtype_mapping_from_classes(classlist):
     mapping = {}
