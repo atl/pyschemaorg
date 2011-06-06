@@ -1,9 +1,37 @@
+try:
+    import simplejson as json
+except ImportError:
+    import json
+
 from schemaorg.base import Base
+from schemaorg.iso8601 import parse_date
+
+class JSONEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, Base):
+            return dict(o)
+        elif isinstance(o, Date):
+            return unicode(o)
+        else:
+            return super(JSONEncoder, self).default(o)
+
+to_json = JSONEncoder(indent=2, separators=(', ', ': '))
 
 Boolean = bool
 
 class Date(object):
-    pass
+    def __init__(self, isotime):
+        if isinstance(isotime, basestring):
+            self.data = parse_date(isotime)
+        else:
+            self.data = isotime
+    
+    def __str__(self):
+        return self.data.isoformat()
+    
+    def __repr__(self):
+        return self.data.isoformat()
+    
 
 class Float(float):
     pass
