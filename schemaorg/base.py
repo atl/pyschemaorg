@@ -13,7 +13,7 @@ noop = lambda x: x
 class MultiDict(collections.MutableMapping):
     def __init__(self, *args, **kwargs):
         # super(MultiDict, self).__init__(*args, **kwargs)
-        super(MultiDict, self).__init__( )
+        super(MultiDict, self).__init__()
         self.data = collections.defaultdict(list)
         if len(args) == 1:
             if isinstance(args[0], collections.Mapping):
@@ -61,7 +61,7 @@ class MultiDict(collections.MutableMapping):
         return self.data[key][-1]
     
     def values(self):
-        return list(itertools.chain.from_iterable(self.data.values()))
+        return list(self.itervalues())
     
     def itervalues(self):
         return itertools.chain.from_iterable(self.data.values())
@@ -70,11 +70,14 @@ class MultiDict(collections.MutableMapping):
 class BaseMetaClass(abc.ABCMeta):  
     def __new__(meta, classname, bases, class_dict):
         properties = {}
-        for b in reversed(bases):
+        parents = []
+        for b in bases:
             properties.update(getattr(b, 'properties', {}))
         properties.update(class_dict.get('properties', {}))
         class_dict['properties'] = properties
-        return type.__new__(meta, classname, bases, class_dict)
+        klass = super(BaseMetaClass, meta).__new__(meta, classname, bases, class_dict)
+        klass.parents = [k.__name__ for k in klass.__mro__ if hasattr(k, 'properties')]
+        return klass
 
 class Base(MultiDict):
     properties = {}
@@ -112,6 +115,16 @@ class Base(MultiDict):
             return type(self).__name__
         elif key == 'itemtype':
             return self.schema_url
+    
+    def __setitem__(self, key, value):
+        action = self.properties.get(key, noop)
+        if not isinstance(action, collections.Callable):
+            action = self.import_class(action)
+        if is_nonstring_iterable(value):
+            value = map(action, value)
+        else:
+            value = action(value)
+        super(Base, self).__setitem__(key, value)
     
     @property
     def schema_url(self):
