@@ -29,16 +29,17 @@ datetime.datetime(2007, 1, 25, 12, 0, tzinfo=<iso8601.iso8601.Utc ...>)
 
 """
 
-from datetime import datetime, timedelta, tzinfo
+from datetime import datetime, timedelta, tzinfo, date, time
 import re
 
 __all__ = ["parse_date", "ParseError"]
 
 # Adapted from http://delete.me.uk/2005/03/iso8601.html
-ISO8601_REGEX = re.compile(r"(?P<year>[0-9]{4})(-(?P<month>[0-9]{1,2})(-(?P<day>[0-9]{1,2})"
-    r"((?P<separator>.)(?P<hour>[0-9]{2}):(?P<minute>[0-9]{2})(:(?P<second>[0-9]{2})(\.(?P<fraction>[0-9]+))?)?"
-    r"(?P<timezone>Z|(([-+])([0-9]{2}):([0-9]{2})))?)?)?)?"
+ISO8601_REGEX = re.compile(r"((?P<year>[0-9]{4})(-(?P<month>[0-9]{1,2})(-(?P<day>[0-9]{1,2}))?)?)?"
+ r"((T?(?P<hour>[0-9]{2})(:(?P<minute>[0-9]{2})(:(?P<second>[0-9]{2})(\.|,(?P<fraction>[0-9]+))?)?)?)?"
+ r"(?P<timezone>Z|(([-+])([0-9]{2}):([0-9]{2})))?)?"
 )
+
 TIMEZONE_REGEX = re.compile("(?P<prefix>[+-])(?P<hours>[0-9]{2}).(?P<minutes>[0-9]{2})")
 
 class ParseError(Exception):
@@ -80,17 +81,39 @@ class FixedOffset(tzinfo):
     def __repr__(self):
         return "<FixedOffset %r>" % self.__name
 
+class TruncDate(object):
+    def __init__(self, year, *args):
+        if len(args) == 0 or args[0] == 0:
+            self.date_resolution = 'year'
+            self.date = date(year, 1, 1)
+            self.resolution = timedelta(days=365)
+            self._strformat = '%Y'
+        elif len(args) == 1 or args[1] == 0:
+            self.date_resolution = 'month'
+            self.date = date(year, args[0], 1)
+            self.resolution = timedelta(days=28)
+            self._strformat = '%Y-%m'
+        else:
+            self.date_resolution = 'day'
+            self.date = date(year, *args)
+            self.resolution = timedelta(days=1)
+            self._strformat = '%Y-%m-%d'
+    
+    def isoformat(self):
+        return self.date.strftime(self._strformat)
+    
+    def __str__(self):
+        return self.isoformat()
+    
+
 def parse_timezone(tzstring, default_timezone=UTC):
     """Parses ISO 8601 time zone specs into tzinfo offsets
     
     """
     if tzstring == "Z":
         return default_timezone
-    # This isn't strictly correct, but it's common to encounter dates without
-    # timezones so I'll assume the default (which defaults to UTC).
-    # Addresses issue 4.
     if tzstring is None:
-        return default_timezone
+        return None
     m = TIMEZONE_REGEX.match(tzstring)
     prefix, hours, minutes = m.groups()
     hours, minutes = int(hours), int(minutes)
@@ -118,6 +141,12 @@ def parse_date(datestring, default_timezone=UTC):
         groups["fraction"] = 0
     else:
         groups["fraction"] = int(float("0.%s" % groups["fraction"]) * 1e6)
-    return datetime(int(groups["year"]), int(groups["month"]), int(groups["day"]),
-        int(groups["hour"]), int(groups["minute"]), int(groups["second"]),
-        int(groups["fraction"]), tz)
+    if groups['year'] and groups['hour']:
+        return datetime(int(groups["year"]), int(groups["month"]), int(groups["day"]),
+            int(groups["hour"]), int(groups["minute"] or 0), int(groups["second"] or 0),
+            int(groups.get("fraction")), tz)
+    elif groups['year'] and not groups['hour']:
+        return TruncDate(int(groups["year"] or 0), int(groups["month"] or 0), int(groups["day"] or 0))
+    elif not groups['year'] and groups['hour']:
+        return time(int(groups.get("hour")), int(groups["minute"] or 0), int(groups["second"] or 0),
+            int(groups.get("fraction")), tz)
