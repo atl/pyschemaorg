@@ -12,7 +12,6 @@ noop = lambda x: x
 
 class MultiDict(collections.MutableMapping):
     def __init__(self, *args, **kwargs):
-        # super(MultiDict, self).__init__(*args, **kwargs)
         super(MultiDict, self).__init__()
         self.data = collections.defaultdict(list)
         if len(args) == 1:
@@ -76,7 +75,9 @@ class BaseMetaClass(abc.ABCMeta):
         properties.update(class_dict.get('properties', {}))
         class_dict['properties'] = properties
         klass = super(BaseMetaClass, meta).__new__(meta, classname, bases, class_dict)
-        klass.parents = [k.__name__ for k in klass.__mro__ if hasattr(k, 'properties')]
+        klass.types = [k.__name__ for k in klass.__mro__ if hasattr(k, 'properties')]
+        klass.itemtypes = ["%s%s" % (k._base_URL, k.__name__) for k in klass.__mro__ 
+                             if hasattr(k, 'schema_url')]
         return klass
 
 class Base(MultiDict):
